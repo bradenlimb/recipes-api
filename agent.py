@@ -141,7 +141,7 @@ def post_review_to_github(number: int, comment: str) -> str:
     """Post a final review comment to a GitHub pull request."""
     global review_posted
 
-    review = repo.get_pull(number).create_review(body=comment, event="COMMENT")
+    review = ([r.delete() for r in repo.get_pull(number).get_reviews() if r.state.upper() == "PENDING"], repo.get_pull(number).create_review(body=comment, event="COMMENT"))[-1]
     review_posted = True
     return f"Posted review {review.id} to pull request #{number}."
 
