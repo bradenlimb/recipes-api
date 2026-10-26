@@ -40,6 +40,7 @@ except ValueError as error:
 
 github_client = Github(auth=Auth.Token(github_token))
 repo = github_client.get_repo(repository)
+review_posted = False
 
 
 def get_repository_details() -> dict[str, Any]:
@@ -138,7 +139,10 @@ async def add_final_review_to_state(ctx: Context, final_review: str) -> str:
 
 def post_review_to_github(number: int, comment: str) -> str:
     """Post a final review comment to a GitHub pull request."""
+    global review_posted
+
     review = repo.get_pull(number).create_review(body=comment)
+    review_posted = True
     return f"Posted review {review.id} to pull request #{number}."
 
 
@@ -292,6 +296,15 @@ async def main() -> None:
         print(final_content)
     elif not printed_text.strip():
         print(str(final_result).strip())
+
+    # LLM tool selection is not deterministic. If the workflow produced a review
+    # but stopped before calling the posting tool, post that review here so a
+    # successful Actions run cannot silently finish without reviewing the PR.
+    if not review_posted:
+        review_text = (final_content or printed_text or str(final_result)).strip()
+        if not review_text:
+            raise RuntimeError("The workflow completed without producing a review")
+        print(post_review_to_github(pull_request_number, review_text))
 
 
 if __name__ == "__main__":
